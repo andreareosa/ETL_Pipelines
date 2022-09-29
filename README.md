@@ -170,5 +170,6 @@ if __name__ == '__main__':
 ```
 
 At the beginning we had only two tables in the database but after the ETL process we now have dbo.average_ratings table avaiable as well.
+
 <img src='https://i.ibb.co/ky36fwL/Capture.png'>
 
