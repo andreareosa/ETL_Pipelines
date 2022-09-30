@@ -15,7 +15,7 @@ To keep things simple I've created a two table database schema using PostgreSQL 
 - [Extract data from the database using pyspark](#Extract-data-from-the-database-using-pyspark)
 - [Transform and optimize data](#Transform-and-optimize-data)
 - [Load data back into the database](#Load-data-back-into-the-database)
-- Scheduling ETL pipeline using Airflow
+- [Scheduling ETL pipeline using Airflow](#Scheduling-ETL-pipeline-using-Airflow)
 
 ## Create a database
 
@@ -230,7 +230,7 @@ dafult_args = {
 dag = DAG(
             dag_id = 'elt_pipeline'
             ,default_args = dafult_args
-            ,schedule_interval='0 0 * * *' #cronn time expression: (minute, hour, day of the month, day of the month, week, day of the week) 
+            ,schedule_interval='0 0 * * *' #cron time expression: (minute, hour, day of the month, day of the month, week, day of the week) 
 )
 
 #define the etl task
