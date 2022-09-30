@@ -15,6 +15,7 @@ To keep things simple I've created a two table database schema using PostgreSQL 
 - [Extract data from the database using pyspark](#Extract-data-from-the-database-using-pyspark)
 - [Transform and optimize data](#Transform-and-optimize-data)
 - [Load data back into the database](#Load-data-back-into-the-database)
+- Scheduling ETL pipeline using Airflow
 
 ## Create a database
 
@@ -140,7 +141,7 @@ def transform_avg_ratings(dataframe1,dataframe2):
 ```
 
 ## Load data back into the database 
-The last step is to actually load the transformed data back into the database. We need to use the write function where we have to define the mode which in this case is overwrite, so if the table already exists, we would overwrite it, then provide the url to connect with our database and properties as we did while reading the data in the extraction step.
+This step is to actually load the transformed data back into the database. We need to use the write function where we have to define the mode which in this case is overwrite, so if the table already exists, we would overwrite it, then provide the url to connect with our database and properties as we did while reading the data in the extraction step.
 
 ```python
 def load_aggdf_to_db(agg_dataframe):
@@ -173,3 +174,88 @@ At the beginning we had only two tables in the database but after the ETL proces
 
 <img src='https://i.ibb.co/ky36fwL/Capture.png'>
 
+## Scheduling ETL pipeline using Airflow
+In this last step, it's time to put everything together and schedule the jobs that have been defined so far. The scheduling tool used is Airflow that is the most commonly used scheduling tool at the moment.
+
+Airflow's purpose is to automate and orchestrate our workflows for our data pipelines. The way it does this is it basically runs on a server all the time and when triggers happen or when schedules come in airflow will trigger these workflows or DAG's to happen.
+
+First of all it's necessary to set up airflow on our machine.
+NOTE: Airflow is built in Python but contains some libraries that will only work in Linux, so workarounds using virtual machines or Docker are required for fully-functional usage.
+
+``` zsh
+mkdir airflow
+export AIRFLOW_HOME=~/ETL_data_engineering/airflow
+sudo pip install apache-airflow
+airflow db init
+
+#Create an Admin user (https://airflow.apache.org/docs/apache-airflow/stable/security/webserver.html)
+airflow users create \
+    --username andreareosa \
+    --firstname Andre \
+    --lastname Areosa \
+    --role Admin \
+    --email andre_etl_case@example.com
+```
+
+After we need to create the airflow python script which is really just a configuration file. There's no processing happening here, everything that is related to data processing was already performed in the previous steps. This script is to configure our dag structure as code.
+
+```python
+import airflow
+from airflow.models import DAG
+from airflow.operators.python import PythonOperator
+from datetime import dateime, timedelta
+from transformation import *
+
+#define the ETL Function
+def etl():
+    movies_df = extract_movies_to_df()
+    users_df = extract_users_to_df()
+    agg_df = transform_avg_ratings(movies_df,users_df)
+    load_aggdf_to_db(agg_df)
+
+
+#define the arguments for the DAG
+dafult_args = {
+    'owner': 'andreareosa'
+    ,'start_date': airflow.utils.dates.days_ago(1)
+    ,'depends_on_past': True
+    ,'email': ['andre_etl_case@example.com']
+    ,'email_on_failure': True
+    ,'email_on_retry': False
+    ,'retries': 3
+    ,'retry_delay': timedelta(minutes=30)
+}
+
+#instantiate the DAG
+dag = DAG(
+            dag_id = 'elt_pipeline'
+            ,default_args = dafult_args
+            ,schedule_interval='0 0 * * *' #cronn time expression: (minute, hour, day of the month, day of the month, week, day of the week) 
+)
+
+#define the etl task
+etl_task = PythonOperator(
+            task_id = 'elt_task'
+            ,python_callable = etl
+            ,dag=dag
+)
+
+etl()
+
+```
+
+We need to ensure that both the transformation and dag scripts are inside the airflow dags directory. We can simple create a dags directory under airflow and move both scripts there. Since the transformation script is being used inside dags both of the files need to be inside the dags folder.
+
+Once all of this is done, we can start the web UI and we will receive an URL where the server ir running. Copy and paste in the browser.
+```zsh
+airflow webserver
+```
+
+Before entering the user and password we should start airflow scheduler as well because this is going to update or add our dag to the web UI.
+```zsh
+cd airflow
+export AIRFLOW_HOME=~/ETL_data_engineering/airflow
+airflow scheduler
+```
+
+<img src="https://i.ibb.co/ky1pnkH/Capture1.png">
